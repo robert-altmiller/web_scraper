@@ -1,0 +1,11 @@
+bs4
+requests
+language-tool-python
+nltk
+transformers
+torch
+openai
+accelerate
+numpy
+python-Levenshtein
+pyspark
