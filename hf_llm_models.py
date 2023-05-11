@@ -16,20 +16,21 @@ model_sentiment = AutoModelForSequenceClassification.from_pretrained("textattack
 
 def get_hf_sentiment(text: str, model = model_sentiment, tokenizer = tokenizer_sentiment) -> str:
     """get sentence sentiment using hf model: distilbert-base-uncased-CoLA"""
+    try:
+      inputs = tokenizer.encode_plus(
+          text,
+          add_special_tokens = True,
+          return_tensors = "pt",
+          truncation = True,
+          max_length = 512,
+      )
 
-    inputs = tokenizer.encode_plus(
-        text,
-        add_special_tokens = True,
-        return_tensors = "pt",
-        truncation = True,
-        max_length = 512,
-    )
-
-    outputs = model(**inputs)
-    logits = outputs.logits
-    predicted_label = torch.argmax(logits, dim=1).item()
-    predicted_sentiment = "Positive" if predicted_label == 1 else "Negative"
-    return predicted_sentiment
+      outputs = model(**inputs)
+      logits = outputs.logits
+      predicted_label = torch.argmax(logits, dim=1).item()
+      predicted_sentiment = "Positive" if predicted_label == 1 else "Negative"
+      return predicted_sentiment
+    except: return "Error - Unable to Get Sentiment"
 
 # spark user defined function (UDF)
 sentimentUDF = udf(lambda x: get_hf_sentiment(x), StringType()).asNondeterministic()
@@ -42,9 +43,10 @@ print("initializing hf pipeline: michellejieli/emotion_text_classifier.....\n")
 classifier = pipeline("sentiment-analysis", model = "michellejieli/emotion_text_classifier")
 
 def get_hf_emotion(text: str) -> np.array:
-    """get hugging face text emotion using hf model: emotion_text_classifier"""
-    return classifier(text)
-
+    try:
+      """get hugging face text emotion using hf model: emotion_text_classifier"""
+      return classifier(text)
+    except: return "ERROR - Unable to Get Emotion"
 # spark user defined function (UDF)
 emotionUDF = udf(lambda x: get_hf_emotion(x), StringType()).asNondeterministic()
 
@@ -58,58 +60,57 @@ model_keyword = AutoModelForTokenClassification.from_pretrained("ml6team/keyphra
 ner_model = pipeline('ner', model = model_keyword, tokenizer = tokenizer_keyword)
 
 
-
 def get_hf_keywords(text: str, ner_model = ner_model) -> list:
     """get hugging face text keywords using hf model: bert-uncased-keyword-extractor"""    
-    
-    def sum_numbers(numbers):
-      """sum numbers in a list"""
-      total = 0
-      for number in numbers:
-        total += number
-      return total
+    try:
+      def sum_numbers(numbers):
+        """sum numbers in a list"""
+        total = 0
+        for number in numbers:
+          total += number
+        return total
 
-    keywords = ner_model(text)
-    print(keywords)
+      keywords = ner_model(text)
 
-    # add one additional fake entry at the end so we can pick up the last key phrase in the for loop below
-    keywords.append({'entity': 'B-KEY', 'score': 0, 'index': 0, 'word': 'None', 'start': 0, 'end': 0})
+      # add one additional fake entry at the end so we can pick up the last key phrase in the for loop below
+      keywords.append({'entity': 'B-KEY', 'score': 0, 'index': 0, 'word': 'None', 'start': 0, 'end': 0})
 
-    # Iterate keywords and create keyphrases, get average scores for appended words
-    keyphrase = ''
-    keyphrase_score = []
-    keywords_dict = {}
-    for i in range(len(keywords)):
-        entity = keywords[i]["entity"]
-        score = keywords[i]["score"]
-        word = keywords[i]["word"]
+      # Iterate keywords and create keyphrases, get average scores for appended words
+      keyphrase = ''
+      keyphrase_score = []
+      keywords_dict = {}
+      for i in range(len(keywords)):
+          entity = keywords[i]["entity"]
+          score = keywords[i]["score"]
+          word = keywords[i]["word"]
 
-        if entity.startswith("B"):
-            # Add the previous keyphrase to final_keywords
-            if keyphrase_score:
-                avg_score = sum_numbers(keyphrase_score) / len(keyphrase_score)
-                if "#" in keyphrase:
-                    keyphrase = modify_python_str(keyphrase.strip(), removepunctuation=True, removespaces=True)
-                
-                # Consolidate duplicate keywords and calculate average scores
-                if keyphrase in keywords_dict:
-                    keywords_dict[keyphrase]["total_score"] += avg_score
-                    keywords_dict[keyphrase]["count"] += 1
-                else:
-                    keywords_dict[keyphrase] = {"total_score": avg_score, "count": 1}
+          if entity.startswith("B"):
+              # Add the previous keyphrase to final_keywords
+              if keyphrase_score:
+                  avg_score = sum_numbers(keyphrase_score) / len(keyphrase_score)
+                  if "#" in keyphrase:
+                      keyphrase = modify_python_str(keyphrase.strip(), removepunctuation=True, removespaces=True)
+                  
+                  # Consolidate duplicate keywords and calculate average scores
+                  if keyphrase in keywords_dict:
+                      keywords_dict[keyphrase]["total_score"] += avg_score
+                      keywords_dict[keyphrase]["count"] += 1
+                  else:
+                      keywords_dict[keyphrase] = {"total_score": avg_score, "count": 1}
 
-            # Reset keyphrase and keyphrase_score
-            keyphrase = ''
-            keyphrase_score = []
+              # Reset keyphrase and keyphrase_score
+              keyphrase = ''
+              keyphrase_score = []
 
-        # Append word to keyphrase and score to keyphrase_score
-        keyphrase += word + " "
-        keyphrase_score.append(score)
+          # Append word to keyphrase and score to keyphrase_score
+          keyphrase += word + " "
+          keyphrase_score.append(score)
 
-    # Convert the consolidated dictionary to a list of dictionaries with unique keywords and average scores
-    final_keywords = [{"keyword": keyword, "score": keywords_dict[keyword]["total_score"] / keywords_dict[keyword]["count"]} for keyword in keywords_dict]
+      # Convert the consolidated dictionary to a list of dictionaries with unique keywords and average scores
+      final_keywords = [{"keyword": keyword, "score": keywords_dict[keyword]["total_score"] / keywords_dict[keyword]["count"]} for keyword in keywords_dict]
 
-    return final_keywords
+      return final_keywords
+    except: return "ERROR - Unable to Get Keywords"
 
 
 # text = """Keyphrase extraction is a technique in text analysis where you extract the important keyphrases from a document.  Thanks to these keyphrases humans can understand the content of a text very quickly and easily without reading  it completely. Keyphrase extraction was first done primarily by human annotators, who read the text in detail  and then wrote down the most important keyphrases. The disadvantage is that if you work with a lot of documents,  this process can take a lot of time. 
@@ -142,7 +143,7 @@ def get_hf_summary(input_text: str, tokenizer = tokenizer_bart, model = model_ba
 
 # COMMAND ----------
 
-# DBTITLE 1,Hugging Face Model to Get Text Completion From Incomplete Text
+# DBTITLE 1,Hugging Face Model to Get Text Completion From Incomplete Text (NOT USED)
 def get_hf_text_completion(text: str, max_length: int) -> str:
   """get hugging face text completion using hf model: databricks/dolly-v2-3b"""
   
@@ -168,7 +169,7 @@ def get_hf_text_completion(text: str, max_length: int) -> str:
 
 # COMMAND ----------
 
-# DBTITLE 1,Hugging Face Model for Grammar Correction in Text
+# DBTITLE 1,Hugging Face Model for Grammar Correction in Text (NOT USED)
 print("initializing hf pipeline: pszemraj/flan-t5-large-grammar-synthesis.....\n")
 # pipeline definition
 corrector = pipeline('text2text-generation', 'pszemraj/flan-t5-large-grammar-synthesis')

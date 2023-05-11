@@ -1,8 +1,20 @@
 # Databricks notebook source
 # DBTITLE 1,Get HTML Page Data - Raw and Cleaned
+def generate_fake_user_agent():
+    """generate a fake user agent in http request headers"""
+    useragent = UserAgent()
+    agents_pool_count = random.randint(1, 200)
+    agents = [useragent.random for i in range(agents_pool_count)]
+    random_agent = random.choice(agents)
+    agent_choice = modify_python_str(random_agent, removepunctuation = True)
+    return agent_choice
+    # return 'Mozilla/5.0 (iPad; CPU OS 12_2 like INTOSH OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148'
+
 def get_html_page_data(url = None):
     """get html page data - raw and cleaned"""
-    html_data = requests.get(url = url).text
+    headers = {'User-Agent': generate_fake_user_agent()}
+    s = requests.session()
+    html_data = s.get(url = url, headers = headers).text
     clean_data = ' '.join(BeautifulSoup(html_data, "html.parser").stripped_strings)
     return html_data, clean_data.strip()
 
@@ -50,14 +62,17 @@ def get_word_frequency(inputstr: str) -> list:
 # COMMAND ----------
 
 # DBTITLE 1,Get Content Metrics (Word Count, Word Frequency, Avg. Chars per Word, etc)
-def enrich_html_page_data_with_metrics(filename: str, htmlcontent: str, htmllinks: str, cleanedcontent: str, sentence_summ_keep_ratio: float = 100) -> list:
+def enrich_html_page_data_with_metrics(url_base: str, filename: str, htmlcontent: str, cleanedcontent: str, htmllinks = None, sentence_summ_keep_ratio: float = 100) -> list:
   """
   get html clean page data split into sentences and enriched with metrics
   and hugging face Large Language Model data.
   """
   summ_length = len(cleanedcontent.strip())
   sentences = split_into_sentences(cleanedcontent)
-  sentences_total = len(sentences)
+  
+  if len(sentences) > 0: sentences_total = len(sentences)
+  else: sentences_total = 0
+  
   sentences_final = []
   sentences_summary = ''
   length_to_sent = 0
@@ -82,15 +97,17 @@ def enrich_html_page_data_with_metrics(filename: str, htmlcontent: str, htmllink
       sentences_final.append({
         "sentence_key": counter,
         "sentence": sentence,
-        "hf_sentence": get_hf_summary(sentence),
+        #"hf_sentence": get_hf_summary(sentence), 
         "sentence_summary_ratio": sent_summ_ratio, 
         "sentence_length": sent_length, 
         "length_to_sentence": length_to_sent, 
         "sentence_total_words": sent_word_count, 
         "sentence_avg_chars_per_word": sent_avg_chars_per_word, 
         "sentence_words_that_repeat_count": sent_word_freq_count, 
-        "sentence_words_that_repeat_total_words_ratio": sent_word_freq_count / sent_word_count, 
-        "sentences_keywords": get_hf_keywords(sentence)
+        "sentence_words_that_repeat_total_words_ratio": sent_word_freq_count / sent_word_count,
+        #"hf_sentence_sentiment": get_hf_sentiment(sentence),
+        #"hf_sentence_emotion": get_hf_emotion(sentence),
+        "hf_sentences_keywords": get_hf_keywords(sentence)
         #"sentence_word_frequency": get_word_frequency(f'{sentence}')
       })
       counter += 1
@@ -101,6 +118,7 @@ def enrich_html_page_data_with_metrics(filename: str, htmlcontent: str, htmllink
 
   summary_json = json.dumps([
     remove_blank_attributes({
+      "url_base": url_base,
       "filename_md5": filename,
       "sentences_total": sentences_total,
       "sentences_summary": sentences_summary,
@@ -111,6 +129,7 @@ def enrich_html_page_data_with_metrics(filename: str, htmlcontent: str, htmllink
 
   sentences_json = json.dumps([
     remove_blank_attributes({
+      "url_base": url_base,
       "filename_md5": filename,
       "sentences_total": sentences_total,
       #"sentences_summary_word_frequency_count": sentences_summary_word_freq_count,
@@ -135,16 +154,19 @@ def filter_content_by_word_count(wordcount: int) -> bool:
 # DBTITLE 1,Get HTML Page Links / Urls
 def get_html_page_links(url_base = None, html_data = None, html_link_filter = None):
     """get all links and remove duplicate links"""
-    soup = BeautifulSoup(html_data, 'html.parser')
-    embedded_urls = []
-    for link in soup.find_all('a'):
-        href_link = link.get('href')
-        if href_link != None:
-            emebedded_url = create_valid_page_links(url_base, href_link)
-            if emebedded_url != None and html_link_filter in emebedded_url and exclude_file_ext_check(emebedded_url) == False: # html link filter
-                embedded_urls.append(emebedded_url)
-    return list(set(embedded_urls)) # remove duplicates (if any)
-
+    try:
+      soup = BeautifulSoup(html_data, 'html.parser')
+      embedded_urls = []
+      if len(soup.find_all('a')) > 0:
+        for link in soup.find_all('a'):
+            href_link = link.get('href')
+            if href_link != None:
+                emebedded_url = create_valid_page_links(url_base, href_link)
+                if emebedded_url != None and html_link_filter in emebedded_url and exclude_file_ext_check(emebedded_url) == False: # html link filter
+                    embedded_urls.append(emebedded_url)
+        return list(set(embedded_urls)) # remove duplicates (if any)
+      else: return ["ERROR - NO HTML Links Exist"]
+    except: return ["ERROR - NO HTML Links Exist"]
 
 def create_valid_page_links(url_base = None, url_sub = None):
     """create a valid url for all html page links"""
@@ -153,7 +175,7 @@ def create_valid_page_links(url_base = None, url_sub = None):
         if url_sub.startswith("http") == True:
             return url_sub # valid url
         else: 
-            return None
+            return "ERROR - NO HTML Links Exist"
 
 # COMMAND ----------
 
