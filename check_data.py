@@ -10,6 +10,10 @@ from pyspark.sql.functions import *
 
 # COMMAND ----------
 
+dbutils.fs.ls(f"/Workspace{get_local_notebook_path().rsplit('/', 1)[0]}/df_summary")
+
+# COMMAND ----------
+
 # DBTITLE 1,Display Web Scraped Summary Data
 dfsummary = spark.read.load(f"/Workspace{get_local_notebook_path().rsplit('/', 1)[0]}/df_summary", format = "delta") \
   .dropDuplicates()
@@ -24,6 +28,15 @@ dfsentences = dfsentences \
   .dropDuplicates(["filename_md5","sentence_key"]) \
   .sort(asc("filename_md5"), asc("sentence_key"))
 display(dfsentences)
+
+# COMMAND ----------
+
+df = dfsentences \
+  .groupby("url_base") \
+  .agg(
+    count(col("url_base"))
+  )
+display(df)
 
 # COMMAND ----------
 

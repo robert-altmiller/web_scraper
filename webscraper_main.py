@@ -48,7 +48,7 @@ def get_html_data(url_base = None, html_link_filter = None):
     summary_json, sentences_json = enrich_html_page_data_with_metrics(url_base, filename, html_data, html_cleaned_data, html_links)
     write_local_json_file(url_base, "summary", summary_json)
     write_local_json_file(url_base, "sentences", sentences_json)
-    write_results_to_delta_lake(summary_json, sentences_json, "append")
+    write_results_to_delta_lake(summary_json, sentences_json)
     
     if len(html_links) > 0: # then process more pages recursively using html_link_filter
         html_links_random = random.sample(html_links, len(html_links))
