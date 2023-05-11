@@ -1,6 +1,6 @@
 # Databricks notebook source
 # DBTITLE 1,Library Imports
-import torch
+import torch, einops
 import numpy as np
 from pyspark.sql.functions import *
 from pyspark.sql.types import *
@@ -122,7 +122,7 @@ keywordsUDF = udf(lambda x: get_hf_keywords(x), StringType()).asNondeterministic
 
 # COMMAND ----------
 
-# DBTITLE 1,Hugging Face Model to Get Summary of Text
+# DBTITLE 1,Hugging Face Model to Get Summary of Text - Version 1 (NOT USED TOO SLOW)
 # initialize tokenizer and model
 print("initializing hf model: facebook/bart-large-cnn.....\n")
 tokenizer_bart = AutoTokenizer.from_pretrained("facebook/bart-large-cnn")

@@ -27,8 +27,4 @@ display(dfsentences)
 
 # COMMAND ----------
 
-dfsentences.printSchema
-
-# COMMAND ----------
-
 

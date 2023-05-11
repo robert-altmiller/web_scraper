@@ -109,12 +109,12 @@ def write_local_json_file(url_base = None, fname_prefix = None, data = None):
     url_base = modify_python_str(url_base, lowercase = True)
     # folder name (base website address used for scraping)
     foldername = get_folder_name(url_base)
-    print(f"foldername: {foldername}")
+    print(f"foldername: {foldername}\n")
     # file name (md5 hash website address used for scraping)
     filename = f"{str_to_md5_hash(url_base)}_{fname_prefix}.json"
-    print(f"filename: {filename}")
+    print(f"filename: {filename}\n\n")
     # local folder path
-    local_folder_path = f"scraped_data/{foldername}\n\n"
+    local_folder_path = f"scraped_data/{foldername}"
     if os.path.isdir(local_folder_path) == False: os.makedirs(local_folder_path)
     with open(f"./{local_folder_path}/{filename}", "w") as f:
        f.write(data)

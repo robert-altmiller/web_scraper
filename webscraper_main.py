@@ -53,26 +53,25 @@ def get_html_data(url_base = None, html_link_filter = None):
     if len(html_links) > 0: # then process more pages recursively using html_link_filter
         html_links_random = random.sample(html_links, len(html_links))
         for link in html_links_random:
-            time.sleep(float(random.randrange(0, 5))/100)
+            time.sleep(float(random.randrange(0, 5)) / 100)
             # check if website has already been processed
-            foldername = get_folder_name(link)
-            filename = str_to_md5_hash(link)
-            filepath = f"scraped_data/{foldername}/{filename}_summary.json"
-            if os.path.exists(f"./{filepath}") == False: # prevents recursive forever loops
-                print(f"path does not exists -- {filepath} - {link}\n\n")
-                get_html_data(url_base = link, html_link_filter = html_link_filter)
-            else:
-                print(f"path already exists -- {filepath} - {link}\n\n")
-                continue
+            if link != "ERROR - NO HTML Links Exist":
+              print(f"next link being processed: {link}\n\n")
+              foldername = get_folder_name(link)
+              filename = str_to_md5_hash(link)
+              filepath = f"scraped_data/{foldername}/{filename}_summary.json"
+              if os.path.exists(f"./{filepath}") == False: # prevents recursive forever loops
+                  print(f"path does not exists -- {filepath} - {link}\n\n")
+                  get_html_data(url_base = link, html_link_filter = html_link_filter)
+              else:
+                  print(f"path already exists -- {filepath} - {link}\n\n")
+                  continue
 
     return summary_json, sentences_json
 
 
 """main web scraper program"""
-html_link_filter = "snowflake.com"
-url_base = "https://resources.snowflake.com/snowflake/"
+html_link_filter = "snowflake.com/blog"
+url_base = "https://www.snowflake.com/blog/"
 summary_json, sentences_json = get_html_data(url_base, html_link_filter)
-
-# COMMAND ----------
-
-
+print("finished processing available website urls...\n")

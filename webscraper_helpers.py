@@ -164,7 +164,8 @@ def get_html_page_links(url_base = None, html_data = None, html_link_filter = No
                 emebedded_url = create_valid_page_links(url_base, href_link)
                 if emebedded_url != None and html_link_filter in emebedded_url and exclude_file_ext_check(emebedded_url) == False: # html link filter
                     embedded_urls.append(emebedded_url)
-        return list(set(embedded_urls)) # remove duplicates (if any)
+        if len(embedded_urls) == 0: return embedded.urls.append("ERROR - NO HTML Links Exist")
+        else: return list(set(embedded_urls)) # remove duplicates (if any)
       else: return ["ERROR - NO HTML Links Exist"]
     except: return ["ERROR - NO HTML Links Exist"]
 

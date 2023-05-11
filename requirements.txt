@@ -1,3 +1,4 @@
+tensorflow
 bs4
 requests
 language-tool-python
@@ -10,3 +11,6 @@ numpy
 python-Levenshtein
 pyspark
 fake-useragent
+cuda-python
+torchvision
+langchain
