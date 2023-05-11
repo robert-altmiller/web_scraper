@@ -15,21 +15,21 @@ tokenizer_sentiment = AutoTokenizer.from_pretrained("textattack/distilbert-base-
 model_sentiment = AutoModelForSequenceClassification.from_pretrained("textattack/distilbert-base-uncased-CoLA")
 
 def get_hf_sentiment(text: str, model = model_sentiment, tokenizer = tokenizer_sentiment) -> str:
-  """get sentence sentiment using hf model: distilbert-base-uncased-CoLA"""
+    """get sentence sentiment using hf model: distilbert-base-uncased-CoLA"""
 
-  inputs = tokenizer.encode_plus(
-      text,
-      add_special_tokens = True,
-      return_tensors = "pt",
-      truncation = True,
-      max_length = 512,
-  )
+    inputs = tokenizer.encode_plus(
+        text,
+        add_special_tokens = True,
+        return_tensors = "pt",
+        truncation = True,
+        max_length = 512,
+    )
 
-  outputs = model(**inputs)
-  logits = outputs.logits
-  predicted_label = torch.argmax(logits, dim=1).item()
-  predicted_sentiment = "Positive" if predicted_label == 1 else "Negative"
-  return predicted_sentiment
+    outputs = model(**inputs)
+    logits = outputs.logits
+    predicted_label = torch.argmax(logits, dim=1).item()
+    predicted_sentiment = "Positive" if predicted_label == 1 else "Negative"
+    return predicted_sentiment
 
 # spark user defined function (UDF)
 sentimentUDF = udf(lambda x: get_hf_sentiment(x), StringType()).asNondeterministic()
@@ -42,8 +42,8 @@ print("initializing hf pipeline: michellejieli/emotion_text_classifier.....\n")
 classifier = pipeline("sentiment-analysis", model = "michellejieli/emotion_text_classifier")
 
 def get_hf_emotion(text: str) -> np.array:
-  """get hugging face text emotion using hf model: emotion_text_classifier"""
-  return classifier(text)
+    """get hugging face text emotion using hf model: emotion_text_classifier"""
+    return classifier(text)
 
 # spark user defined function (UDF)
 emotionUDF = udf(lambda x: get_hf_emotion(x), StringType()).asNondeterministic()
@@ -52,17 +52,26 @@ emotionUDF = udf(lambda x: get_hf_emotion(x), StringType()).asNondeterministic()
 
 # DBTITLE 1,Hugging Face Model to Get Keywords From Text
 # initial tokenizer and model
-print("initializing hf model: yanekyuk/bert-uncased-keyword-extractor.....\n")
-tokenizer_keyword = AutoTokenizer.from_pretrained("yanekyuk/bert-uncased-keyword-extractor")
-model_keyword = AutoModelForTokenClassification.from_pretrained("yanekyuk/bert-uncased-keyword-extractor")
+print("initializing hf model: ml6team/keyphrase-extraction-kbir-inspec.....\n")
+tokenizer_keyword = AutoTokenizer.from_pretrained("ml6team/keyphrase-extraction-kbir-inspec")
+model_keyword = AutoModelForTokenClassification.from_pretrained("ml6team/keyphrase-extraction-kbir-inspec")
 ner_model = pipeline('ner', model = model_keyword, tokenizer = tokenizer_keyword)
 
-def get_hf_keywords(text: str, model = ner_model) -> list:
+
+
+def get_hf_keywords(text: str, ner_model = ner_model) -> list:
     """get hugging face text keywords using hf model: bert-uncased-keyword-extractor"""    
     
+    def sum_numbers(numbers):
+      """sum numbers in a list"""
+      total = 0
+      for number in numbers:
+        total += number
+      return total
 
-    keywords = model(text)
-    
+    keywords = ner_model(text)
+    print(keywords)
+
     # add one additional fake entry at the end so we can pick up the last key phrase in the for loop below
     keywords.append({'entity': 'B-KEY', 'score': 0, 'index': 0, 'word': 'None', 'start': 0, 'end': 0})
 
@@ -78,7 +87,7 @@ def get_hf_keywords(text: str, model = ner_model) -> list:
         if entity.startswith("B"):
             # Add the previous keyphrase to final_keywords
             if keyphrase_score:
-                avg_score = sum(keyphrase_score) / len(keyphrase_score)
+                avg_score = sum_numbers(keyphrase_score) / len(keyphrase_score)
                 if "#" in keyphrase:
                     keyphrase = modify_python_str(keyphrase.strip(), removepunctuation=True, removespaces=True)
                 
@@ -101,6 +110,11 @@ def get_hf_keywords(text: str, model = ner_model) -> list:
     final_keywords = [{"keyword": keyword, "score": keywords_dict[keyword]["total_score"] / keywords_dict[keyword]["count"]} for keyword in keywords_dict]
 
     return final_keywords
+
+
+# text = """Keyphrase extraction is a technique in text analysis where you extract the important keyphrases from a document.  Thanks to these keyphrases humans can understand the content of a text very quickly and easily without reading  it completely. Keyphrase extraction was first done primarily by human annotators, who read the text in detail  and then wrote down the most important keyphrases. The disadvantage is that if you work with a lot of documents,  this process can take a lot of time. 
+# Here is where Artificial Intelligence comes in. Currently, classical machine learning methods, that use statistical  and linguistic features, are widely used for the extraction process. Now with deep learning, it is possible to capture  the semantic meaning of a text even better than these classical methods. Classical methods look at the frequency,  occurrence and order of words in the text, whereas these neural approaches can capture long-term semantic dependencies  and context of words in a text."""
+# print(get_hf_keywords(text))
 
 # spark user defined function (UDF)
 keywordsUDF = udf(lambda x: get_hf_keywords(x), StringType()).asNondeterministic()
@@ -145,8 +159,8 @@ def get_hf_text_completion(text: str, max_length: int) -> str:
       dd = tokenizer.decode(generated_output[0])
       return dd
 
-  # return generated text    
-  return generate(text, max_length)
+      # return generated text    
+      return generate(text, max_length)
 
 # unit test
 # results = get_hf_text_completion("you are a data engineer write apache spark scala code for the problem Read a csv file from adls with schema emp_id, first_name, last_name filter on first_name = 'John' and write the output to another adls path \nanswer: here is the apache spark scala code", max_length = 1000)
@@ -160,48 +174,34 @@ print("initializing hf pipeline: pszemraj/flan-t5-large-grammar-synthesis.....\n
 corrector = pipeline('text2text-generation', 'pszemraj/flan-t5-large-grammar-synthesis')
 
 def get_hf_grammar_correction(text: str) -> str:
-  """get hugging face text grammar correction using hf model: pszemraj/flan-t5-large-grammar-synthesis"""
-  return corrector(text)[0]["generated_text"]
+    """get hugging face text grammar correction using hf model: pszemraj/flan-t5-large-grammar-synthesis"""
+    return corrector(text)[0]["generated_text"]
 
 
 def get_levenstein_dist_percent(text1: str, text2: str) -> float:
-  """get levenstein distance between two text strings"""
-  from Levenshtein import distance as lev
-  val = lev(text1, text2)
-  return val, round(float(val/len(text1)),2)
+    """get levenstein distance between two text strings"""
+    from Levenshtein import distance as lev
+    val = lev(text1, text2)
+    return val, round(float(val/len(text1)),2)
 
 
 def get_keep_text(text: str) -> bool:
-  """
-  determine if text is good or bad based on a % of the number changes 
-  to go from the original to the gramatically correct text
-  """
-  text1 = text
-  text2 = get_hf_grammar_correction(text)
-  l_dist, l_dist_percent = get_levenstein_dist_percent(text1, text2)
-  print(f"original_text: {text1}, text_length: {len(text1)}")
-  print(f"fixed_text: {text2}, text_length: {len(text2)}")
-  print(f"levenstein_val: {l_dist}, levenstein_percent: {l_dist_percent}")
+    """
+    determine if text is good or bad based on a % of the number changes 
+    to go from the original to the gramatically correct text
+    """
+    text1 = text
+    text2 = get_hf_grammar_correction(text)
+    l_dist, l_dist_percent = get_levenstein_dist_percent(text1, text2)
+    print(f"original_text: {text1}, text_length: {len(text1)}")
+    print(f"fixed_text: {text2}, text_length: {len(text2)}")
+    print(f"levenstein_val: {l_dist}, levenstein_percent: {l_dist_percent}")
 
-  keep_text = False
-  if l_dist_percent < .3: keep_text = True
-  print(f"keep_text: {keep_text}") 
-  return keep_text
+    keep_text = False
+    if l_dist_percent < .3: keep_text = True
+    print(f"keep_text: {keep_text}") 
+    return keep_text
 
 # unit test
 # text = """SEARCH HOMEPAGE CHEAT SHEET TOP 10 RIGHT NOW 1 Trump Furious That Jury Wasn\u2019t Told Name of Carroll\u2019s Cat BUT HER CAT!"""
 # answer = get_keep_text(text)
-
-# COMMAND ----------
-
-# from transformers import pipeline
-# summarizer = pipeline("summarization", model="philschmid/bart-large-cnn-samsum")
-
-# conversation = '''Jeff: Can I train a 🤗 Transformers model on Amazon SageMaker? 
-# Philipp: Sure you can use the new Hugging Face Deep Learning Container. 
-# Jeff: ok.
-# Jeff: and how can I get started? 
-# Jeff: where can I find documentation? 
-# Philipp: ok, ok you can find everything here. https://huggingface.co/blog/the-partnership-amazon-sagemaker-and-hugging-face                                           
-# '''
-# summarizer(conversation)

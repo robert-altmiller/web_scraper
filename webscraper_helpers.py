@@ -10,7 +10,10 @@ def get_html_page_data(url = None):
 
 # DBTITLE 1,Get Local Folder Name For Writing Scraped Website Data
 def get_folder_name(url_base = None):
-    """get local folder name for writing scraped website data"""
+    """
+    get local folder name for writing scraped website data
+    this can also be used for creating a delta table partition
+    """
     # folder name (base website address used for scraping)
     foldername = f"{url_base.split('//')[1].split('/')[0]}"
     # remove puncuation from folder name
@@ -85,8 +88,9 @@ def enrich_html_page_data_with_metrics(filename: str, htmlcontent: str, htmllink
         "length_to_sentence": length_to_sent, 
         "sentence_total_words": sent_word_count, 
         "sentence_avg_chars_per_word": sent_avg_chars_per_word, 
-        "sentence_word_frequency_count": sent_word_freq_count, 
-        "sentence_word_frequency_total_words_ratio": sent_word_freq_count / sent_word_count, 
+        "sentence_words_that_repeat_count": sent_word_freq_count, 
+        "sentence_words_that_repeat_total_words_ratio": sent_word_freq_count / sent_word_count, 
+        "sentences_keywords": get_hf_keywords(sentence)
         #"sentence_word_frequency": get_word_frequency(f'{sentence}')
       })
       counter += 1
